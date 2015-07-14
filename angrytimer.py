@@ -2,9 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import base64
-from datetime import datetime
-import locale
-import os
+import time
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
@@ -17,71 +15,91 @@ import analogclock
 class Fatherland_widget(QWidget):
     def __init__(self):
         super().__init__()
+        self.s_hour = 0
+        self.s_min = 0
+        self.sliders_text_value = '00m'
+        self.stored_alarms = []
+        self.running_alarms = []
         self.initUI()
 
     def initUI(self):
-        h_box = QHBoxLayout()
-        h_box.setSpacing(10)
+        father_grid = QGridLayout()
+        father_grid.setSpacing(10)
 
         self.left = Left_Widget()
-        self.right = Right_widget()
+        self.right_clock = Right_widget_top()
+        self.right_alarms = Right_widget_down()
 
-        h_box.addWidget(self.left)
-        h_box.addWidget(self.right)
-        self.setLayout(h_box)
+        father_grid.addWidget(self.left,0,0,2,2)
+        father_grid.addWidget(self.right_clock, 0, 3, 1, 1)
+        father_grid.addWidget(self.right_alarms, 1, 3, 1, 1)
+        self.setLayout(father_grid)
+
+        # LOGIC
+        self.left.slider_hours.valueChanged[int].connect(self.value_changed)
+        self.left.slider_minutes.valueChanged[int].connect(self.value_changed)
+
+        self.left.button_start.clicked.connect(self.add_new_alarm)
+        self.left.button_clear.clicked.connect(self.clear_all_countdowns)
+
+    def value_changed(self, value):
+        self.get_current_value()
+        self.left.the_time_label.setText(self.sliders_text_value)
+
+    def get_current_value(self):
+        self.s_hour = self.left.slider_hours.value()
+        self.s_min = self.left.slider_minutes.value()
+
+        if self.s_hour < 1:
+            self.sliders_text_value = '{:02}m'.format(self.s_min)
+        else:
+            self.sliders_text_value = '{}h : {:02}m'.format(
+                self.s_hour, self.s_min)
+
+    def add_new_alarm(self):
+        current_time = int(time.time())
+        s = {
+            'start_time': current_time,
+            'end_time': current_time + (self.s_hour*3600) + (self.s_min*60)
+        }
+        self.stored_alarms.append(s)
+
+        l = QLabel('test')
+        self.right.rgrid.addWidget(l)
+
+        self.run_alarms()
+
+    def run_alarms(self):
+        current_time = int(time.time())
+        for x in self.stored_alarms:
+            if x['end_time'] - current_time < 0:
+                continue
+            the_time = x['end_time'] - x['start_time']
+            print(the_time)
+            q = QTimer()
+            q.timeout.connect(self.alarm_ended)
+            q.setSingleShot(True)
+            q.start(the_time*1000)
+            self.running_alarms.append(q)
+
+    def clear_all_countdowns(self):
+        print(self.running_alarms)
+        for x in self.running_alarms:
+            x.stop()
+        self.running_alarms = []
+        print(self.running_alarms)
+
+    def alarm_ended(self):
+        s = ['play', '/usr/share/sounds/KDE-Im-Contact-Out.ogg']
+        subprocess.Popen(s)
 
 
 class Left_Widget(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
-        self.sliders_value = [0, 0]
-        self.sliders_text_value = '00m'
-        self.running_countdowns = []
-
-    def get_current_value(self):
-        h = self.slider_hours.value()
-        m = self.slider_minutes.value()
-        self.sliders_value = [h, m]
-
-        if h < 1:
-            self.sliders_text_value = '{:02}m'.format(m)
-        else:
-            self.sliders_text_value = '{}h : {:02}m'.format(h, m)
-
-    def changeValue(self, value):
-        self.get_current_value()
-        self.the_time_label.setText(self.sliders_text_value)
-
-    def start_countdown_btn_press(self):
-        print(self.sliders_value)
-        #self.current_timer.timeout.connect(self.print_hello)
-        #self.current_timer.setSingleShot(True)
-        #self.current_timer.start(3000)
-        q = QTimer()
-        q.timeout.connect(self.print_hello)
-        q.setSingleShot(True)
-        q.start(3000)
-        self.running_countdowns.append({'text': self.sliders_text_value,
-                                        'qtimer': q,
-                                        'end_time': 'fuck'
-                                       })
-
-    def clear_all_countdowns(self):
-        print('clear')
-        for x in self.running_countdowns:
-            x['qtimer'].stop()
-        self.running_countdowns = []
-        print(self.running_countdowns)
-
-    def print_hello(self):
-        print('zz')
-        s = ['play', '/usr/share/sounds/KDE-Im-Contact-Out.ogg']
-        subprocess.Popen(s)
 
     def initUI(self):
-        # ITEMS
-
         left_right_layout = QHBoxLayout()
         left_right_layout.setSpacing(10)
 
@@ -118,17 +136,8 @@ class Left_Widget(QWidget):
         left_right_layout.addWidget(self.tabWidget)
         self.setLayout(left_right_layout)
 
-        # LOGIC
 
-        self.slider_hours.valueChanged[int].connect(self.changeValue)
-        self.slider_minutes.valueChanged[int].connect(self.changeValue)
-
-        self.button_start.clicked.connect(self.start_countdown_btn_press)
-        self.button_clear.clicked.connect(self.clear_all_countdowns)
-
-
-
-class Right_widget(QWidget):
+class Right_widget_top(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
@@ -137,11 +146,26 @@ class Right_widget(QWidget):
         self.the_clock = analogclock.AnalogClock()
         self.the_clock.show()
 
-        grid = QGridLayout()
-        grid.setSpacing(10)
+        self.rgrid = QGridLayout()
+        self.rgrid.setSpacing(10)
 
-        grid.addWidget(self.the_clock, 1, 1, 25, 25)
-        self.setLayout(grid)
+        self.rgrid.addWidget(self.the_clock, 1, 1, 25, 25)
+        self.setLayout(self.rgrid)
+
+class Right_widget_down(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.the_clock = analogclock.AnalogClock()
+        self.the_clock.show()
+
+        self.rgrid = QGridLayout()
+        self.rgrid.setSpacing(10)
+
+        self.rgrid.addWidget(self.the_clock, 1, 1, 25, 25)
+        self.setLayout(self.rgrid)
 
 
 # THE MAIN APPLICATION WINDOW WITH THE STATUS BAR AND LOGIC
