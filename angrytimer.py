@@ -20,6 +20,9 @@ class Fatherland_widget(QWidget):
         self.sliders_text_value = '00m'
         self.stored_alarms = []
         self.running_alarms = []
+        self.tick_tock_timer = QTimer()
+        self.model = QStandardItemModel()
+        self.countdown_is_running = False
         self.initUI()
 
     def initUI(self):
@@ -28,11 +31,11 @@ class Fatherland_widget(QWidget):
 
         self.left = Left_Widget()
         self.right_clock = Right_widget_top()
-        self.right_alarms = Right_widget_down()
+        self.low_alarms = Down_right_widget()
 
-        father_grid.addWidget(self.left,0,0,2,2)
+        father_grid.addWidget(self.left, 0, 0, 2, 2)
         father_grid.addWidget(self.right_clock, 0, 3, 1, 1)
-        father_grid.addWidget(self.right_alarms, 1, 3, 1, 1)
+        father_grid.addWidget(self.low_alarms, 1, 3, 1, 1)
         self.setLayout(father_grid)
 
         # LOGIC
@@ -57,41 +60,81 @@ class Fatherland_widget(QWidget):
                 self.s_hour, self.s_min)
 
     def add_new_alarm(self):
+        print('single click')
         current_time = int(time.time())
-        s = {
+        seconds_lasting = self.s_hour*3600 + self.s_min*60
+
+        item = QStandardItem(self.digits_from_seconds(seconds_lasting))
+        item.alarm = {
             'start_time': current_time,
-            'end_time': current_time + (self.s_hour*3600) + (self.s_min*60)
+            'end_time': current_time + seconds_lasting,
+            'length': seconds_lasting,
+            'word_length': self.sliders_text_value,
+            'q_timer': QTimer()
         }
-        self.stored_alarms.append(s)
+        item.alarm['q_timer'].timeout.connect(self.alarm_ended)
+        item.alarm['q_timer'].setSingleShot(True)
+        item.alarm['q_timer'].start(seconds_lasting*1000)
+        self.model.appendRow(item)
+        self.low_alarms.running_list.setModel(self.model)
 
-        l = QLabel('test')
-        self.right.rgrid.addWidget(l)
+        self.countdown_is_running = True
 
-        self.run_alarms()
+        self.tick_tock_timer.timeout.connect(self.tick_tock)
+        self.tick_tock_timer.setSingleShot(False)
+        self.tick_tock_timer.start(1000)
 
-    def run_alarms(self):
-        current_time = int(time.time())
-        for x in self.stored_alarms:
-            if x['end_time'] - current_time < 0:
-                continue
-            the_time = x['end_time'] - x['start_time']
-            print(the_time)
-            q = QTimer()
-            q.timeout.connect(self.alarm_ended)
-            q.setSingleShot(True)
-            q.start(the_time*1000)
-            self.running_alarms.append(q)
-
-    def clear_all_countdowns(self):
-        print(self.running_alarms)
-        for x in self.running_alarms:
-            x.stop()
-        self.running_alarms = []
-        print(self.running_alarms)
+    def tick_tock(self):
+        print('ticking')
+        for x in range(self.model.rowCount()):
+            item = self.model.item(x)
+            remaining = round(item.alarm['q_timer'].remainingTime() / 1000)
+            item.setText(self.digits_from_seconds(remaining))
 
     def alarm_ended(self):
         s = ['play', '/usr/share/sounds/KDE-Im-Contact-Out.ogg']
         subprocess.Popen(s)
+
+        now = int(time.time())
+        zero_alarms_runing = True
+        print(dir(self.model))
+        for x in range(self.model.rowCount()):
+            item = self.model.item(x)
+            if item.alarm['end_time'] > now:
+                zero_alarms_runing = False
+            else:
+                t = '{} ALARM ENDED'.format(item.alarm['word_length'])
+                item.setText(t)
+                item.alarm['q_timer'].stop()
+                item.alarm['q_timer'].timeout.connect(self.alarm_ended_cleanup)
+                item.alarm['q_timer'].setSingleShot(True)
+                item.alarm['q_timer'].start(5000)
+
+        if zero_alarms_runing:
+            self.tick_tock_timer.stop()
+            self.countdown_is_running = False
+
+    def alarm_ended_cleanup(self):
+        for x in range(self.model.rowCount()):
+            item = self.model.item(x)
+            if item.alarm['end_time'] < now:
+                self.model.removeRow(item.row())
+
+
+    def digits_from_seconds(self, secs):
+        m, s = divmod(secs, 60)
+        h, m = divmod(m, 60)
+        if h == 0:
+            return '{:02}:{:02}'.format(m, s)
+        return '{:02}:{:02}:{:02}'.format(h, m, s)
+
+    def clear_all_countdowns(self):
+        for x in range(self.model.rowCount()):
+            item = self.model.item(x)
+            item.alarm['q_timer'].stop()
+        self.model.clear()
+        self.tick_tock_timer.stop()
+        self.countdown_is_running = False
 
 
 class Left_Widget(QWidget):
@@ -152,20 +195,14 @@ class Right_widget_top(QWidget):
         self.rgrid.addWidget(self.the_clock, 1, 1, 25, 25)
         self.setLayout(self.rgrid)
 
-class Right_widget_down(QWidget):
+
+class Down_right_widget(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
 
     def initUI(self):
-        self.the_clock = analogclock.AnalogClock()
-        self.the_clock.show()
-
-        self.rgrid = QGridLayout()
-        self.rgrid.setSpacing(10)
-
-        self.rgrid.addWidget(self.the_clock, 1, 1, 25, 25)
-        self.setLayout(self.rgrid)
+        self.running_list = QListView(self)
 
 
 # THE MAIN APPLICATION WINDOW WITH THE STATUS BAR AND LOGIC
