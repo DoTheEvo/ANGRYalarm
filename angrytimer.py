@@ -21,9 +21,11 @@ class Fatherland_widget(QWidget):
         self.stored_alarms = []
         self.running_alarms = []
         self.tick_tock_timer = QTimer()
+        self.end_notice_timer = QTimer()
         self.model = QStandardItemModel()
         self.countdown_is_running = False
         self.initUI()
+
 
     def initUI(self):
         father_grid = QGridLayout()
@@ -60,14 +62,13 @@ class Fatherland_widget(QWidget):
                 self.s_hour, self.s_min)
 
     def add_new_alarm(self):
-        print('single click')
-        current_time = int(time.time())
+        now = int(time.time())
         seconds_lasting = self.s_hour*3600 + self.s_min*60
 
         item = QStandardItem(self.digits_from_seconds(seconds_lasting))
         item.alarm = {
-            'start_time': current_time,
-            'end_time': current_time + seconds_lasting,
+            'start_time': now,
+            'end_time': now + seconds_lasting,
             'length': seconds_lasting,
             'word_length': self.sliders_text_value,
             'q_timer': QTimer()
@@ -78,18 +79,24 @@ class Fatherland_widget(QWidget):
         self.model.appendRow(item)
         self.low_alarms.running_list.setModel(self.model)
 
-        self.countdown_is_running = True
-
-        self.tick_tock_timer.timeout.connect(self.tick_tock)
-        self.tick_tock_timer.setSingleShot(False)
-        self.tick_tock_timer.start(1000)
+        # ONLY NEED SINGLE tick_tock_timer RUNNING
+        if self.countdown_is_running is False:
+            self.tick_tock_timer = QTimer()
+            self.tick_tock_timer.timeout.connect(self.tick_tock)
+            self.tick_tock_timer.setSingleShot(False)
+            self.tick_tock_timer.start(1000)
+            self.countdown_is_running = True
 
     def tick_tock(self):
         print('ticking')
         for x in range(self.model.rowCount()):
             item = self.model.item(x)
             remaining = round(item.alarm['q_timer'].remainingTime() / 1000)
-            item.setText(self.digits_from_seconds(remaining))
+            if remaining > 0:
+                item.setText(self.digits_from_seconds(remaining))
+            else:
+                t = '{} ALARM ENDED'.format(item.alarm['word_length'])
+                item.setText(t)
 
     def alarm_ended(self):
         s = ['play', '/usr/share/sounds/KDE-Im-Contact-Out.ogg']
@@ -97,29 +104,30 @@ class Fatherland_widget(QWidget):
 
         now = int(time.time())
         zero_alarms_runing = True
-        print(dir(self.model))
         for x in range(self.model.rowCount()):
             item = self.model.item(x)
             if item.alarm['end_time'] > now:
                 zero_alarms_runing = False
-            else:
-                t = '{} ALARM ENDED'.format(item.alarm['word_length'])
-                item.setText(t)
-                item.alarm['q_timer'].stop()
-                item.alarm['q_timer'].timeout.connect(self.alarm_ended_cleanup)
-                item.alarm['q_timer'].setSingleShot(True)
-                item.alarm['q_timer'].start(5000)
 
         if zero_alarms_runing:
             self.tick_tock_timer.stop()
             self.countdown_is_running = False
 
+        self.end_notice_timer.timeout.connect(self.alarm_ended_cleanup)
+        self.end_notice_timer.setSingleShot(True)
+        self.end_notice_timer.start(3000)
+
     def alarm_ended_cleanup(self):
+        print('cleanup')
+        now = int(time.time())
+        marked_for_removal = []
         for x in range(self.model.rowCount()):
             item = self.model.item(x)
-            if item.alarm['end_time'] < now:
-                self.model.removeRow(item.row())
+            if item.alarm['end_time'] <= now:
+                marked_for_removal.append(item)
 
+        for z in marked_for_removal:
+            self.model.removeRow(z.row())
 
     def digits_from_seconds(self, secs):
         m, s = divmod(secs, 60)
