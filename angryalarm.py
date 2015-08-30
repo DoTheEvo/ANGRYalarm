@@ -76,7 +76,8 @@ class Fatherland_widget(QWidget):
         item.alarm['q_timer'].timeout.connect(self.alarm_ended)
         item.alarm['q_timer'].setSingleShot(True)
         item.alarm['q_timer'].start(seconds_lasting*1000)
-        self.model.appendRow(item)
+        where = self.position_in_model(item)
+        self.model.insertRow(where, item)
         self.low_alarms.running_list.setModel(self.model)
 
         # ONLY NEED SINGLE tick_tock_timer RUNNING
@@ -86,6 +87,21 @@ class Fatherland_widget(QWidget):
             self.tick_tock_timer.setSingleShot(False)
             self.tick_tock_timer.start(1000)
             self.countdown_is_running = True
+
+    def position_in_model(self, item):
+        count = 0
+        numb_of_items = self.model.rowCount()
+
+        if numb_of_items == 0:
+            return 0
+
+        for x in range(numb_of_items):
+            count += 1
+            prev = self.model.item(x)
+            if item.alarm['end_time'] <= prev.alarm['end_time']:
+                return x
+
+        return count
 
     def tick_tock(self):
         print('ticking')
@@ -118,7 +134,6 @@ class Fatherland_widget(QWidget):
         self.end_notice_timer.start(3000)
 
     def alarm_ended_cleanup(self):
-        print('cleanup')
         now = int(time.time())
         marked_for_removal = []
         for x in range(self.model.rowCount()):
