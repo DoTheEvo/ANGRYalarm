@@ -32,12 +32,15 @@ class Fatherland_widget(QWidget):
         father_grid.setSpacing(10)
 
         self.left = Left_Widget()
-        self.right_clock = Right_widget_top()
-        self.low_alarms = Down_right_widget()
+        self.running_list = QListView()
 
-        father_grid.addWidget(self.left, 0, 0, 2, 2)
-        father_grid.addWidget(self.right_clock, 0, 3, 1, 1)
-        father_grid.addWidget(self.low_alarms, 1, 3, 1, 1)
+        self.the_clock = analogclock.AnalogClock()
+
+        self.running_list.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+
+        father_grid.addWidget(self.left.tabWidget, 0, 0, 2, 2)
+        father_grid.addWidget(self.the_clock, 0, 3, 1, 1)
+        father_grid.addWidget(self.running_list, 1, 3, 1, 1)
         self.setLayout(father_grid)
 
         # LOGIC
@@ -78,7 +81,7 @@ class Fatherland_widget(QWidget):
         item.alarm['q_timer'].start(seconds_lasting*1000)
         where = self.position_in_model(item)
         self.model.insertRow(where, item)
-        self.low_alarms.running_list.setModel(self.model)
+        self.running_list.setModel(self.model)
 
         # ONLY NEED SINGLE tick_tock_timer RUNNING
         if self.countdown_is_running is False:
@@ -166,11 +169,17 @@ class Left_Widget(QWidget):
         self.initUI()
 
     def initUI(self):
-        left_right_layout = QHBoxLayout()
-        left_right_layout.setSpacing(10)
+        self.tabWidget = QTabWidget()
+        self.tab_1 = QWidget()
+        self.tab_2 = QWidget()
+        self.tabWidget.addTab(self.tab_1, 'Countdown')
+        self.tabWidget.addTab(self.tab_2, 'Longterm')
+        self.tabWidget.setCurrentIndex(0)
 
         self.slider_hours = QSlider(Qt.Horizontal, self)
         self.slider_minutes = QSlider(Qt.Horizontal, self)
+
+        self.slider_minutes.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
 
         self.slider_hours.setMinimum(0)
         self.slider_hours.setMaximum(24)
@@ -181,51 +190,29 @@ class Left_Widget(QWidget):
         self.slider_minutes.setTickPosition(2)
         self.slider_minutes.setTickInterval(10)
 
-        self.tabWidget = QTabWidget()
-        self.tab_1 = QWidget()
-        self.tab_2 = QWidget()
-        self.tabWidget.addTab(self.tab_1, 'Countdown')
-        self.tabWidget.addTab(self.tab_2, 'Longterm')
-        self.tabWidget.setCurrentIndex(0)
 
         self.button_start = QPushButton("Start the Countdown")
         self.button_clear = QPushButton("Clear All")
+        self.button_start.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
+        self.button_clear.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
+
         self.the_time_label = QLabel('15m')
+        self.the_time_label.setAlignment(Qt.AlignHCenter)
+        font = QFont()
+        font.setPointSize(32)
+        font.setBold(True)
+        font.setWeight(75)
+        self.the_time_label.setFont(font)
+
+        # self.button_start.setStyleSheet("QPushButton { background-color: blue }"
+        #                                 "QPushButton:pressed { background-color: red }" )
 
         grid_layout = QGridLayout(self.tab_1)
         grid_layout.addWidget(self.slider_hours, 0, 0, 1, 3)
-        grid_layout.addWidget(self.slider_minutes, 1, 0, 1, 3)
-        grid_layout.addWidget(self.the_time_label, 2, 1, 1, 1)
-        grid_layout.addWidget(self.button_clear, 2, 0)
-        grid_layout.addWidget(self.button_start, 2, 2)
-
-        left_right_layout.addWidget(self.tabWidget)
-        self.setLayout(left_right_layout)
-
-
-class Right_widget_top(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.initUI()
-
-    def initUI(self):
-        self.the_clock = analogclock.AnalogClock()
-        self.the_clock.show()
-
-        self.rgrid = QGridLayout()
-        self.rgrid.setSpacing(10)
-
-        self.rgrid.addWidget(self.the_clock, 1, 1, 25, 25)
-        self.setLayout(self.rgrid)
-
-
-class Down_right_widget(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.initUI()
-
-    def initUI(self):
-        self.running_list = QListView(self)
+        grid_layout.addWidget(self.slider_minutes, 2, 0, 2, 3)
+        grid_layout.addWidget(self.the_time_label, 4, 1)
+        grid_layout.addWidget(self.button_clear, 5, 0, 2, 1)
+        grid_layout.addWidget(self.button_start, 5, 1, 2, 2)
 
 
 # THE MAIN APPLICATION WINDOW WITH THE STATUS BAR AND LOGIC
@@ -235,6 +222,12 @@ class Gui_MainWindow(QMainWindow):
         self.settings = QSettings('angrytimer', 'angrytimer')
         self.set = {}
         self.read_settings()
+
+        self.style_data = ''
+        f=open('stylesheet.qss', 'r')
+        self.style_data = f.read()
+        f.close()
+
         self.init_GUI()
 
     def init_GUI(self):
@@ -243,6 +236,7 @@ class Gui_MainWindow(QMainWindow):
 
         self.center = Fatherland_widget()
         self.setCentralWidget(self.center)
+        self.setStyleSheet(self.style_data)
 
         self.setWindowTitle('ANGRYtimer')
         self.status_bar = QStatusBar(self)
@@ -274,15 +268,22 @@ class Gui_MainWindow(QMainWindow):
             QCoreApplication.instance().quit()
 
     def get_tray_icon(self):
-        base64_data = '''iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAABHN
-                         CSVQICAgIfAhkiAAAAQNJREFUOI3t1M9KAlEcxfHPmP0xU6Ogo
-                         G0teoCiHjAIfIOIepvKRUE9R0G0KNApfy0c8hqKKUMrD9zVGc4
-                         9nPtlsgp5n6qSVSk7cBG8CJ6sEX63UEcXz4jE20YNPbygPy25Q
-                         o6oE+fEPXFF7A5yA9Eg2sQDcU3sJd6k89O4iiMcYKVol3rH2Mc
-                         a1meZ4hMdNPCIj+SjHHfFZU94/0Nwlv4rWoY7vhrdeLNoO86bG
-                         lym/ge3lsHDdI2fojbBG6sUtzOiQ1wQOwk6GwWKHeJyHtxOcFi
-                         0TpFaxmnhNcyIW45bQ6RS3Hq4MeB7Ltyahki9Gd2xidWiwG9va
-                         nCZqi7xlZGVHfwN6+5nU/ccBUYAAAAASUVORK5CYII='''
+        base64_data = '''iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSF
+                      lzAAAOwgAADsIBFShKgAAAABp0RVh0U29mdHdhcmUAUGFpbnQuTkVUIHYzLjUuMTAw9HKhAAAC5El
+                      EQVQ4T61Ta0iTYRj1h5WVEUEQM9N5JTXDqDSFtIu1yktTU6wkE3SFIYmXoDItzMzbZl7m1DnzOv38
+                      tulsTqcuN3fT5aWfYkS/NIyMAv1Ryen9JIRh0Z9eeODwnPOd97zPx2Nn979OTnZuhC7pSpGFE7r0L
+                      jnh7WJ6ihNF0S40LXNdSE9hzSfHz05wTn7SXYsrys3OjbK5dy71uuPCg6xRlR8bg6S+Pbm/unT7xr
+                      kCHi8vn8fL/8hLOvu14N6KmnCMZvFhjnYuNWnXhsl0zIVHA/7uELF2o8nLebXL00k7dNRnuTfoMHq
+                      D/DF0zGeZ9EYJt8JoVIfcMc3lPN4wsEaFp3a47Vvj790pLWOzlmt93FEVH4vajDuou5uBaoKFpFfO
+                      Zn1hNO1EOxl5hrdhMHuVa6857usn9XCSlcdw8bK5FTq9ATqdHq9UAzAaLeu9yrhYSD1YCpLIbybxs
+                      r3NHGg/94SyWC6oHgU0Gi20Wj2U/SrQtBxSKQW5Qkk4OfhxMejxZSdu+nmNR3wnmholGB83Q60eRn
+                      +/GgaDmSQxgs9/AdWAhiQyQtwghjjgoNXGwBAeslUYdfGnwWjG1PQsDCSysK6B3NqP6moh+vpUMJk
+                      m8GZqhpiaIIrkrOnCAh02TPSnAncIoiNQWyuCoLKKiCwwkg8YLJG0wGyeXDeVNLegokIAYUw0XocE
+                      ONqkqDl/+r1MroTZYkV3N43CwiJ0dFLoITMZHByBiZgwHC3rRXMk58OmGYi9XfKqip5jiAywrU2KX
+                      hJ7eGQMw8NjoCjF+nPUxEhYXAqJ94H8TQaU136HmtBgK79UQBIo0KdUo6W1A9IuGkqCOztp8Ev4qA
+                      8LmerycNr+xxUqCQtxKb3E+f40jYeq6nqI6sVoaGwmWIRnabdQEcH5URwa7PrX/cvMzDrh6enVFuB
+                      gL7vJdp7PCg76zFQKwQEOW+Rstlt7Tk5u8L8WeBsR7CHlTMrrdzGY6TGczfkFSv+cb9Ll4CsAAAAA
+                      SUVORK5CYII='''
 
         pm = QPixmap()
         pm.loadFromData(base64.b64decode(base64_data))
