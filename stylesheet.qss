@@ -1220,9 +1220,7 @@ QSplitter::handle:vertical {
 
 
 
-/*-----------CUSTOM ADDITION----------*/
-
-
+/*-----------CUSTOM ADDITION SLIDER----------*/
 
 
 QSlider::groove:horizontal {
@@ -1249,7 +1247,7 @@ border-radius: 4px;
 QSlider::handle:horizontal {
 background: #bbb;
 border: 1px solid #777;
-width: 10px;
+width: 15px;
 margin-top: -8px;
 margin-bottom: -8px;
 border-radius: 4px;
@@ -1276,4 +1274,26 @@ QSlider::handle:horizontal:disabled {
 background: #eee;
 border: 1px solid #aaa;
 border-radius: 4px;
+}
+
+QSlider::tick::above {
+background: #ffc100;
+}
+
+
+/*-----------CUSTOM ADDITION QLABEL----------*/
+
+QPushButton
+{
+    color: silver;
+    background-color: #111;
+    border-width: 1px;
+    border-color: #ccc;
+    border-style: solid;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 5px;
+    padding-right: 5px;
+    border-radius: 10px;
+    outline: none;
 }

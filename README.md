@@ -1,4 +1,6 @@
 # ANGRYalarm
 Simple countdown with sound notifications
 
-![GUI pic](http://i.imgur.com/KuVy9ir.png)
+work in progress
+
+![GUI pic](http://i.imgur.com/94KxdM7.png)
